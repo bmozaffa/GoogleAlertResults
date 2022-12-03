@@ -7,7 +7,9 @@ function fetchRSS() {
     if (Object.entries(results.entries).length > 0) {
       storeSearchResults(token, schema, results);
     }
-    storeLastUpdate(token, schema, rssFeed.recordId, results.timestamp);
+    if (results.timestamp) {
+      storeLastUpdate(token, schema, rssFeed.recordId, results.timestamp);
+    }
   }
 }
 
@@ -31,14 +33,17 @@ function getFeeds(token, schema) {
         feed = {
           keywords: record.fields[schema.feeds.keywords],
           url: record.fields[schema.feeds.feedURL],
-          lastUpdate: new Date(record.fields[schema.feeds.lastUpdate]),
           recordId: record.id
         };
+        var dateString = record.fields[schema.feeds.lastUpdate];
+        if (dateString) {
+          feed.lastUpdate = new Date(record.fields[schema.feeds.lastUpdate])
+        }
         feeds.push(feed);
       }
     }
     return feeds;
-  } else if (code == 401 || code == 403) {
+  } else if (code === 401 || code === 403) {
     // Not fully authorized for this action.
     throw ("Authroization error: " + code + " with message " + resp.getContentText());
   } else {
@@ -60,7 +65,7 @@ function storeSearchResults(token, schema, result) {
         fields: {
           [schema.results.title]: result.entries[j].title,
           [schema.results.link]: result.entries[j].link,
-          [schema.results.timestamp]: result.entries[j].timestamp.toISOString(),
+          [schema.results.timestamp]: result.entries[j].timestamp.toLocaleDateString(),
           [schema.results.keywords]: rssFeed.keywords
         }
       });
@@ -85,8 +90,8 @@ function createRecords(token, schema, records) {
   });
   var code = resp.getResponseCode();
   if (code >= 200 && code < 300) {
-    return;
-  } else if (code == 401 || code == 403) {
+    console.log("Stored " + recrods.length + " new records");
+  } else if (code === 401 || code === 403) {
     // Not fully authorized for this action.
     throw ("Authroization error: " + code + " with message " + resp.getContentText());
   } else {
@@ -118,7 +123,7 @@ function getUpdatedResults(url, lastUpdate) {
   result.timestamp = timestampElement.getValue();
   for (entryXML of root.getChildren("entry", namespace)) {
     timestamp = new Date(entryXML.getChild("updated", namespace).getValue());
-    if (lastUpdate && timestamp > lastUpdate) {
+    if (!lastUpdate || timestamp > lastUpdate) {
       var entry = {};
       entry.title = entryXML.getChild("title", namespace).getValue();
       entry.link = entryXML.getChild("link", namespace).getAttribute("href").getValue();
@@ -149,13 +154,16 @@ function storeLastUpdate(token, schema, recordId, timestamp) {
   var code = resp.getResponseCode();
   if (code >= 200 && code < 300) {
     return null;
-  } else if (code == 401 || code == 403) {
+  } else if (code === 401 || code === 403) {
     // Not fully authorized for this action.
     throw ("Authroization error: " + code + " with message " + resp.getContentText());
   } else {
     if (code === 422) {
-      for (record of data.records) {
-        console.error(record);
+      console.error(data);
+      if (data.records) {
+        for (record of data.records) {
+          console.error(record);
+        }
       }
     }
     // Handle other response codes by logging them and throwing an
@@ -167,7 +175,7 @@ function storeLastUpdate(token, schema, recordId, timestamp) {
 }
 
 function getAirTableSchema() {
-  var schema = {
+  return {
     baseId: "app9RtRrw9rTjgbUZ", //appdpBAn1QPm2n9Jw for alerts and app9RtRrw9rTjgbUZ for Press Coverage
     feeds: {
       table: "[DRAFT] Keywords",
@@ -183,7 +191,6 @@ function getAirTableSchema() {
       keywords: "Google Alerts Keyword Group",
     }
   };
-  return schema;
 }
 
 function getAirTablePersonalAccessToken() {
