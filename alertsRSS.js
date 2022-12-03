@@ -110,7 +110,12 @@ function getUpdatedResults(url, lastUpdate) {
   var root = XmlService.parse(response).getRootElement();
   var namespace = root.getNamespace();
   result.title = root.getChild("title", namespace).getValue();
-  result.timestamp = root.getChild("updated", namespace).getValue();
+  timestampElement = root.getChild("updated", namespace);
+  if (!timestampElement) {
+    console.log("Found RSS feed that has not produced any results yet, likely just created");
+    return result;
+  }
+  result.timestamp = timestampElement.getValue();
   for (entryXML of root.getChildren("entry", namespace)) {
     timestamp = new Date(entryXML.getChild("updated", namespace).getValue());
     if (lastUpdate && timestamp > lastUpdate) {
@@ -163,7 +168,7 @@ function storeLastUpdate(token, schema, recordId, timestamp) {
 
 function getAirTableSchema() {
   var schema = {
-    baseId: "appdpBAn1QPm2n9Jw", //appdpBAn1QPm2n9Jw for alerts and app9RtRrw9rTjgbUZ for Press Coverage
+    baseId: "app9RtRrw9rTjgbUZ", //appdpBAn1QPm2n9Jw for alerts and app9RtRrw9rTjgbUZ for Press Coverage
     feeds: {
       table: "[DRAFT] Keywords",
       keywords: "Alerts Keyword",
@@ -179,4 +184,8 @@ function getAirTableSchema() {
     }
   };
   return schema;
+}
+
+function getAirTablePersonalAccessToken() {
+  return "path4oTeqfmsF14r7.982e7049xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 }
