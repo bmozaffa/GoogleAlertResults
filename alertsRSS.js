@@ -5,7 +5,7 @@ function fetchRSS() {
   for (rssFeed of feeds) {
     var results = getUpdatedResults(rssFeed.url, rssFeed.lastUpdate);
     if (Object.entries(results.entries).length > 0) {
-      storeSearchResults(token, schema, results);
+      storeSearchResults(token, schema, rssFeed.recordId, results);
     }
     if (results.timestamp) {
       storeLastUpdate(token, schema, rssFeed.recordId, results.timestamp);
@@ -55,18 +55,19 @@ function getFeeds(token, schema) {
   }
 }
 
-function storeSearchResults(token, schema, result) {
+function storeSearchResults(token, schema, recordId, result) {
   //Split into batches of maximum 10 entries each, as restricted by Airtable:
   for (let i = 0; i < (result.entries.length / 10); i++) {
     let start = i * 10;
     var records = [];
+    var keywords = [recordId];
     for (let j = start; j < (start + 10) && j < result.entries.length; j++) {
       records.push({
         fields: {
           [schema.results.title]: result.entries[j].title,
           [schema.results.link]: result.entries[j].link,
           [schema.results.timestamp]: result.entries[j].timestamp.toLocaleDateString(),
-          [schema.results.keywords]: rssFeed.keywords
+          [schema.results.keywords]: keywords
         }
       });
     }
@@ -90,7 +91,7 @@ function createRecords(token, schema, records) {
   });
   var code = resp.getResponseCode();
   if (code >= 200 && code < 300) {
-    console.log("Stored " + recrods.length + " new records");
+    console.log("Stored " + records.length + " new records");
   } else if (code === 401 || code === 403) {
     // Not fully authorized for this action.
     throw ("Authroization error: " + code + " with message " + resp.getContentText());
@@ -188,7 +189,7 @@ function getAirTableSchema() {
       timestamp: "Date",
       link: "URL",
       title: "Headline",
-      keywords: "Google Alerts Keyword Group",
+      keywords: "Google Alerts Keyword",
     }
   };
 }
