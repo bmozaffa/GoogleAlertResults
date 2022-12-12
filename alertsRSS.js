@@ -2,14 +2,29 @@ function fetchRSS() {
   var token = getAirTablePersonalAccessToken();
   var schema = getAirTableSchema();
   var feeds = getFeeds(token, schema);
+  var failures = [];
   for (rssFeed of feeds) {
-    var results = getUpdatedResults(rssFeed.url, rssFeed.lastUpdate);
-    if (Object.entries(results.entries).length > 0) {
-      storeSearchResults(token, schema, rssFeed.recordId, results);
+    try {
+      var results = getUpdatedResults(rssFeed.url, rssFeed.lastUpdate);
+      if (Object.entries(results.entries).length > 0) {
+        storeSearchResults(token, schema, rssFeed.recordId, results);
+      }
+      if (results.timestamp) {
+        storeLastUpdate(token, schema, rssFeed.recordId, results.timestamp);
+      }
+    } catch (err) {
+      failures.push(rssFeed);
     }
-    if (results.timestamp) {
-      storeLastUpdate(token, schema, rssFeed.recordId, results.timestamp);
+  }
+  if (failures.length === 1) {
+    console.error("Failed to get updated Google Alert results for %s with URL %s", failures[0].keywords, failures[0].url);
+    throw ("Failed to get all updated Google Alert results");
+  } else if (failures.length > 1) {
+    console.error("Failed to get updated Google Alert results for %s fees", failures.length);
+    for (feed of failures) {
+      console.error("Failed to get updated Google Alert results for %s with URL %s", feed.keywords, feed.url);
     }
+    throw ("Failed to get all updated Google Alert results");
   }
 }
 
@@ -45,7 +60,7 @@ function getFeeds(token, schema) {
     return feeds;
   } else if (code === 401 || code === 403) {
     // Not fully authorized for this action.
-    throw ("Authroization error: " + code + " with message " + resp.getContentText());
+    throw ("Authorization error: " + code + " with message " + resp.getContentText());
   } else {
     // Handle other response codes by logging them and throwing an
     // exception.
@@ -94,7 +109,7 @@ function createRecords(token, schema, records) {
     console.log("Stored " + records.length + " new records");
   } else if (code === 401 || code === 403) {
     // Not fully authorized for this action.
-    throw ("Authroization error: " + code + " with message " + resp.getContentText());
+    throw ("Authorization error: " + code + " with message " + resp.getContentText());
   } else {
     if (code === 422) {
       for (record of data.records) {
@@ -157,7 +172,7 @@ function storeLastUpdate(token, schema, recordId, timestamp) {
     return null;
   } else if (code === 401 || code === 403) {
     // Not fully authorized for this action.
-    throw ("Authroization error: " + code + " with message " + resp.getContentText());
+    throw ("Authorization error: " + code + " with message " + resp.getContentText());
   } else {
     if (code === 422) {
       console.error(data);
@@ -179,7 +194,7 @@ function getAirTableSchema() {
   return {
     baseId: "app9RtRrw9rTjgbUZ", //appdpBAn1QPm2n9Jw for alerts and app9RtRrw9rTjgbUZ for Press Coverage
     feeds: {
-      table: "[DRAFT] Keywords",
+      table: "Google Alerts Keywords",
       keywords: "Alerts Keyword",
       feedURL: "RSS Feed",
       lastUpdate: "Last Query"
